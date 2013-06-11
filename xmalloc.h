@@ -1,6 +1,8 @@
 /* Defines dynamic memory functions that do a few more saftey checks.
    Also defines a convenient memory free macro.  You might decide to
-   use "gnulib" in place of this implementation.  */
+   use "gnulib" in place of this implementation.
+
+   This file is in Public Domain.  */
 
 #ifndef XMALLOC_H
 #define XMALLOC_H

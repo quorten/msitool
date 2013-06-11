@@ -1,4 +1,5 @@
 # -*- gdb-script -*- definitions for debugging expandable arrays
+# This file is in Public Domain.
 
 define print_exparray
  set $i = 0

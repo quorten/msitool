@@ -1,7 +1,28 @@
 /* colon-parser.c -- parse an `ls -R' like file, that may have tab
    indentations.
 
-   To use this parser, call ParseLSRFile() with the appropriate
+Copyright (C) 2013 Andrew Makousky
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
+
+/* To use this parser, call ParseLSRFile() with the appropriate
    callbacks.  */
 
 #include <stdio.h>
@@ -50,11 +71,11 @@ int ParseLSRFile(FILE* fp, AddBodyClbk AddBody,
 		if (subLevel == false)
 		{
 			/* Read the label that is followed by a colon.  */
-			EA_APPEND(char, colonLabel, '\0');
+			EA_APPEND(colonLabel, '\0');
 			while (readChar != EOF && (char)readChar != ':')
 			{
 				unsigned pos = colonLabel.len - 1;
-				EA_INSERT(char, colonLabel, pos, (char)readChar);
+				EA_INSERT(colonLabel, pos, (char)readChar);
 				readChar = fgetc(fp);
 			}
 			if (readChar == EOF)
@@ -111,12 +132,12 @@ int ParseLSRFile(FILE* fp, AddBodyClbk AddBody,
 			}
 
 			EA_INIT(char, itemName, 16);
-			EA_APPEND(char, itemName, '\0');
+			EA_APPEND(itemName, '\0');
 			while (readChar != EOF && (char)readChar != '\n' &&
 				(char)readChar != ':')
 			{
 				unsigned pos = itemName.len - 1;
-				EA_INSERT(char, itemName, pos, (char)readChar);
+				EA_INSERT(itemName, pos, (char)readChar);
 				readChar = fgetc(fp);
 			}
 			if (readChar == EOF)
@@ -128,7 +149,7 @@ int ParseLSRFile(FILE* fp, AddBodyClbk AddBody,
 			{
 				/* A nested label was found.  */
 				/* Prepare for next loop.  */
-				EA_SET_SIZE(char, colonLabel, itemName.len);
+				EA_SET_SIZE(colonLabel, itemName.len);
 				strcpy(colonLabel.d, itemName.d);
 				subLevel = true;
 				xfree(itemName.d);
@@ -146,7 +167,7 @@ int ParseLSRFile(FILE* fp, AddBodyClbk AddBody,
 
 		if (subLevel == true)
 			continue;
-		EA_SET_SIZE(char, colonLabel, 0);
+		EA_SET_SIZE(colonLabel, 0);
 		if (readChar == EOF)
 			break;
 		if ((char)readChar == '\n')

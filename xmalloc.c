@@ -5,7 +5,9 @@
    "xalloc_die()" was inspired from gnulib
    <www.gnu.org/software/gnulib>.  Memory size checking in this code
    was inspired from the DJGPP <www.delorie.com/djgpp> xalloc
-   functions, courtesy of DJ Delorie.  */
+   functions, courtesy of DJ Delorie.
+
+   This file is in Public Domain.  */
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,82 +1,109 @@
 /* A simple expandable array implementation.
 
-   How to use:
+Copyright (C) 2013 Andrew Makousky
 
-   * This expandable array implementation is divided into two
-     sections: core primitives and convenience functions.
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-   * Whenever you want to use a specific type in an expandable array,
-	 first call `EA_TYPE(typename)' with your type.  This macro
-	 defines a structure customized to be an array of that specific
-	 type.  The first field of the structure, `d', is a pointer of the
-	 given type, which points to the dynamically allocated array
-	 contents.
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-   * When you want to declare an expandable array, simply use
-	 `typename_array' as the type name (with your type as `typename',
-	 of course).
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-   * Initialize the array before use by calling `EA_INIT()'.  `array'
-	 is the value of your array (use the syntax `*array' if it is a
-	 pointer), and `reserve' is the number of elements to allocate
-	 space for in advance.  If linear reallocation is being used, then
-	 the array will be reallocated with that many more elements when
-	 the array becomes full.
-
-   * All of these macros accept values rather than pointers, so use
-     syntax as described above if you have a pointer that will be used
-     as an argument.
-
-   * NOTE: Because of the fact that this expandable array
-     implementation uses macros extensively, there are some
-     programming situations where macro inputs get clobbered during
-     intermediate execution of the macros.  So far, this code was only
-     modified in one place to compensate for these issues.
-
-   * When you are done using an expandable array, make sure you call
-     `EA_DESTROY()'.
-
-   * To reserve space for extra elements that will be written in-place
-     at a later time, set `typename_array::len' to the desired size
-     and then call `EA_NORMALIZE()'.  `EA_NORMALIZE()' can also be
-     used to free up unused space in an array.
-
-   * The normal behavior of an exparray is to allocate a reserve in
-     advance, and allocate more space once all of the previously
-     pre-allocated space is filled up.  Thus, one way to append a
-     single element to the array is to write to the position at
-     `typename_array::d[typename_array::len]', then call `EA_ADD()'.
-
-   * You can change which functions are used for allocation by
-     defining `ea_malloc', `ea_realloc', and `ea_free' to the
-     functions to use for allocation.
-
-   * You can also modify allocation behavior by providing different
-     macros for `EA_GROW()' and `EA_NORMALIZE()'.  Normally,
-     allocation behavior is done in an exponential manner without
-     clearing newly allocated memory.  You can change this by defining
-     `EA_LINEAR_REALLOC' or `EA_GARRAY_REALLOC'.
-
-   * The rest of the functions are convenience functions that use the
-     previously mentioned primitives.  See their individual
-     documentation for more details.
-
-   * There is a wrapper header available for you to use this
-     implementation as a backend in place of the real GLib GArray
-     implementation.
 */
+
+/* How to use exparray:
+
+* This expandable array implementation is divided into two sections:
+  core primitives and convenience functions.
+
+* Whenever you want to use a specific type in an expandable array,
+  first call `EA_TYPE(typename)' with your type.  This macro defines a
+  structure customized to be an array of that specific type.  The
+  first field of the structure, `d', is a pointer of the given type,
+  which points to the dynamically allocated array contents.
+
+* When you want to declare an expandable array, simply use
+  `typename_array' as the type name (with your type as `typename', of
+  course).
+
+* Initialize the array before use by calling `EA_INIT()'.  `array' is
+  the value of your array (use the syntax `*array' if it is a
+  pointer), and `reserve' is the number of elements to allocate space
+  for in advance (usually you should pick 16).  If linear reallocation
+  is being used, then the array will be reallocated with that many
+  more elements when the array becomes full.
+
+* All of these macros accept values rather than pointers, so use
+  syntax as described above if you have a pointer that will be used as
+  an argument.
+
+* NOTE: Because of the fact that this expandable array implementation
+  uses macros extensively, there are some programming situations where
+  macro inputs get clobbered or evaluated twice during intermediate
+  execution of the macros.  So far, this code was only modified in two
+  places to compensate for these issues.  But then again, using macros
+  can put you as a programmer at an advantage by very tricking writing
+  of expressions such as `EA_INSERT(array, 0, array.d[array.num])'...
+  but maybe you don't want to be that tricky.
+
+* When you are done using an expandable array, make sure you call
+  `EA_DESTROY()'.
+
+* To reserve space for extra elements that will be written in-place at
+  a later time, set `typename_array::len' to the desired size and then
+  call `EA_NORMALIZE()'.  `EA_NORMALIZE()' can also be used to free up
+  unused space in an array.
+
+* The normal behavior of an exparray is to allocate a reserve in
+  advance, and allocate more space once all of the previously
+  pre-allocated space is filled up.  Thus, one way to append a single
+  element to the array is to write to the position at
+  `typename_array::d[typename_array::len]', then call `EA_ADD()'.
+
+* You can change which functions are used for allocation by defining
+  `ea_malloc', `ea_realloc', and `ea_free' to the functions to use for
+  allocation.
+
+* You can also modify allocation behavior by providing different
+  macros for `EA_GROW()' and `EA_NORMALIZE()'.  Normally, allocation
+  behavior is done in an exponential manner without clearing newly
+  allocated memory.  You can change this by defining
+  `EA_LINEAR_REALLOC' or `EA_GARRAY_REALLOC'.
+
+* The rest of the functions are convenience functions that use the
+  previously mentioned primitives.  See their individual documentation
+  for more details.
+
+* There is a wrapper header available for you to use this
+  implementation as a backend in place of the real GLib GArray
+  implementation.  */
 
 #ifndef EXPARRAY_H
 #define EXPARRAY_H
 
+#include <string.h>
+
 #ifndef ea_malloc
-#include <stdlib.h>
-#define ea_malloc  malloc
-#define ea_realloc realloc
-#define ea_free    free
+#include "xmalloc.h"
+#define ea_malloc  xmalloc
+#define ea_realloc xrealloc
+#define ea_free    free /* Don't need extra safety */
 #endif
 
-#include <string.h>
+#define EA_STMT_START do
+#define EA_STMT_END while (0)
 
 #define EA_TYPE(typename)						\
 	struct typename##_array_tag					\
@@ -87,7 +114,17 @@
 		/* User-defined fields.  */				\
 		unsigned user1;							\
 	};											\
-	typedef struct typename##_array_tag typename##_array;
+	typedef struct typename##_array_tag typename##_array
+
+struct generic_array_tag
+{
+	char *d;
+	unsigned len;
+	unsigned tysize;
+	/* User-defined fields.  */
+	unsigned user1;
+};
+typedef struct generic_array_tag generic_array;
 
 /* Aliases for user-defined fields.  */
 #define ea_len_alloc user1
@@ -98,49 +135,50 @@
 
    `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the array to modify
-   `reserve'     the amount of memory to pre-allocate.  The length of
-                 the array is always initialized to zero. */
+   `reserve'     the amount of memory to pre-allocate, typically 16.
+
+   The length of the array is always initialized to zero.  */
 #define EA_INIT(typename, array, reserve)						\
-{																\
+EA_STMT_START {													\
 	(array).len = 0;											\
 	(array).tysize = sizeof(typename);							\
 	(array).ea_len_alloc = reserve;								\
 	(array).d = (typename *)ea_malloc((array).tysize *			\
 									  (array).ea_len_alloc);	\
-}
+} EA_STMT_END
 
 /* Destroy the given array.  This is mostly just a convenience
    function.  */
-#define EA_DESTROY(typename, array)					\
-{													\
+#define EA_DESTROY(array)							\
+EA_STMT_START {										\
 	if ((array).d != NULL)							\
 		ea_free((array).d);							\
 	(array).d = NULL;								\
 	(array).len = 0;								\
 	(array).tysize = 0;								\
 	(array).user1 = 0;								\
-}
+} EA_STMT_END
 
 /* Reallocators:
 
-   EA_GROW(typename, array)
+   EA_GROW(array)
      Reallocation function for single step growth.  The `len' member
      of the array should have already been incremented.
 
-   EA_NORMALIZE(typename, array)
+   EA_NORMALIZE(array)
      Ensure that the allocated space is consistent with the current
      allocation algorithm.  */
 
 /* GLib GArray reallocators.  */
 #ifdef EA_GARRAY_REALLOC
-#define EA_GROW(typename, array)										\
-{																		\
+#define EA_GROW(array)													\
+EA_STMT_START {															\
 	struct _GRealWrap *reala = (struct _GRealWrap *)(&array);			\
 	if (reala->len + (reala->zero_term ? 1 : 0) >= reala->ea_len_alloc) \
 	{																	\
-		reala->ea_len_alloc *= 2;										\
-		reala->data = (typename *)ea_realloc(reala->data, reala->tysize * \
-											 reala->ea_len_alloc);		\
+		reala->ea_len_alloc <<= 1;										\
+		reala->data = (gchar *)ea_realloc(reala->data, reala->tysize *	\
+										  reala->ea_len_alloc);			\
 		if (reala->clear)												\
 		{																\
 			memset(reala->data + reala->tysize * reala->len, 0,			\
@@ -152,18 +190,18 @@
 				   reala->tysize * 1);									\
 		}																\
 	}																	\
-}
-#define EA_NORMALIZE(typename, array)								\
-{																	\
+} EA_STMT_END
+#define EA_NORMALIZE(array)											\
+EA_STMT_START {														\
 	struct _GRealWrap *reala = (struct _GRealWrap *)(&array);		\
 	while (reala->ea_len_alloc >= reala->len + (reala->zero_term ? 1 : 0)) \
-		reala->ea_len_alloc /= 2;									\
+		reala->ea_len_alloc >>= 1;									\
 	if ((reala)->ea_len_alloc == 0)									\
 		(reala)->ea_len_alloc = 1;									\
 	while (reala->len + (reala->zero_term ? 1 : 0) >= reala->ea_len_alloc) \
-		reala->ea_len_alloc *= 2;									\
-	reala->data = (typename *)ea_realloc(reala->data, reala->tysize *	\
-										 reala->ea_len_alloc);		\
+		reala->ea_len_alloc <<= 1;									\
+	reala->data = (gchar *)ea_realloc(reala->data, reala->tysize *	\
+									  reala->ea_len_alloc);			\
 	if (reala->clear)												\
 	{																\
 		memset(reala->data + reala->tysize * reala->len, 0,			\
@@ -174,44 +212,52 @@
 		memset(reala->data + reala->tysize * reala->len, 0,			\
 			   reala->tysize * 1);									\
 	}																\
-}
+} EA_STMT_END
 /* END EA_GARRAY_REALLOC */
 
 /* Linear reallocators.  */
 #elif EA_LINEAR_REALLOC
 #define ea_stride user1 /* User-defined field alias */
-#define EA_GROW(typename, array)										\
-{																		\
+#define EA_GROW(array)													\
+EA_STMT_START {															\
+	generic_array *cpp_punk = (generic_array *)(&array);				\
 	if ((array).len % (array).ea_stride == 0)							\
-		(array).d = (typename *)ea_realloc((array).d, (array).tysize *	\
-									   ((array).len + (array).ea_stride)); \
-}
-#define EA_NORMALIZE(typename, array)									\
-	(array).d = (typename *)ea_realloc((array).d, (array).tysize *		\
-	   ((array).len + ((array).ea_stride - (array).len % (array).ea_stride)));
+		cpp_punk->d = (char *)ea_realloc((array).d, (array).tysize *	\
+										 ((array).len + (array).ea_stride)); \
+} EA_STMT_END
+#define EA_NORMALIZE(array)												\
+EA_STMT_START {															\
+	generic_array *cpp_punk = (generic_array *)(&array);				\
+	cpp_punk->d = (char *)ea_realloc((array).d, (array).tysize *		\
+	   ((array).len + ((array).ea_stride - (array).len % (array).ea_stride))); \
+} EA_STMT_END
 /* END EA_LINEAR_REALLOC */
 
 /* Default exponential reallocators.  */
 #else
-#define EA_GROW(typename, array)				\
+#define EA_GROW(array)							\
+EA_STMT_START {									\
 	if ((array).len >= (array).ea_len_alloc)	\
 	{											\
-		(array).ea_len_alloc *= 2;				\
-		(array).d = (typename *)ea_realloc((array).d, (array).tysize *	\
-									   (array).ea_len_alloc);		\
-	}
-#define EA_NORMALIZE(typename, array)								\
-{																	\
+		generic_array *cpp_punk = (generic_array *)(&array);			\
+		(array).ea_len_alloc <<= 1;										\
+		cpp_punk->d = (char *)ea_realloc((array).d, (array).tysize *	\
+										 (array).ea_len_alloc);			\
+	}																	\
+} EA_STMT_END
+#define EA_NORMALIZE(array)											\
+EA_STMT_START {														\
+	generic_array *cpp_punk = (generic_array *)(&array);			\
 	while ((array).ea_len_alloc > 0 &&								\
 		   (array).ea_len_alloc >= (array).len)						\
-		(array).ea_len_alloc /= 2;									\
+		(array).ea_len_alloc >>= 1;									\
 	if ((array).ea_len_alloc == 0)									\
 		(array).ea_len_alloc = 1;									\
 	while ((array).len >= (array).ea_len_alloc)						\
-		(array).ea_len_alloc *= 2;									\
-	(array).d = (typename *)ea_realloc((array).d, (array).tysize *	\
-								   (array).ea_len_alloc);			\
-}
+		(array).ea_len_alloc <<= 1;									\
+	cpp_punk->d = (char *)ea_realloc((array).d, (array).tysize *	\
+									 (array).ea_len_alloc);			\
+} EA_STMT_END
 #endif /* END reallocators */
 
 /*********************************************************************
@@ -219,7 +265,7 @@
    follows the convenience functions.  */
 
 /* The notation (array).d[x] was previously used in these helper
-   functions, but after I created the GLib GArray wrapper, that
+   functions, but after the GLib GArray wrapper was created, that
    mechanism is no longer safe.  Use this "safe referencing" macro
    instead.  */
 #ifdef EA_GARRAY_REALLOC
@@ -237,13 +283,12 @@
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify */
-#define EA_ADD(typename, array)					\
-{												\
+#define EA_ADD(array)							\
+EA_STMT_START {									\
 	(array).len++;								\
-	EA_GROW(typename, array);					\
-}
+	EA_GROW(array);								\
+} EA_STMT_END
 
 /* Increment the size of the array, allocate space for one new item,
    and move elements in the array to make space for inserting an item
@@ -253,16 +298,15 @@
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `pos'         the zero-based index of where the new item will be
                  inserted */
-#define EA_INS(typename, array, pos)			\
-{												\
-	EA_ADD(typename, array);					\
+#define EA_INS(array, pos)						\
+EA_STMT_START {									\
+	EA_ADD(array);													   \
 	memmove(&EA_SR(array, pos+1), &EA_SR(array, pos), (array).tysize * \
 			((array).len - pos));									   \
-}
+} EA_STMT_END
 
 /* Appends the given item to the end of the array.  Note that the
    appended item cannot be larger than an integer type.  To append a
@@ -270,14 +314,13 @@
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `element'     the value of the item to append */
-#define EA_APPEND(typename, array, element)								\
-{																		\
+#define EA_APPEND(array, element)										\
+EA_STMT_START {															\
 	EA_SR(array, (array).len) = element;								\
-	EA_ADD(typename, array);											\
-}
+	EA_ADD(array);														\
+} EA_STMT_END
 
 /* Inserts the given item at the indicated position.  Elements after
    this position will get moved back.  Note that the inserted item
@@ -286,54 +329,56 @@
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `pos'         the zero-based index indicating where to insert the
                  given element
    `element'     the value of the item to append */
-#define EA_INSERT(typename, array, pos, element)						\
-{																		\
+#define EA_INSERT(array, pos, element)									\
+EA_STMT_START {															\
 	unsigned sos = pos; /* avoid macro evaluation problems */			\
-	EA_INS(typename, array, sos);										\
+	EA_INS(array, sos);													\
 	EA_SR(array, sos) = element;										\
-}
+} EA_STMT_END
 
 /* Append multiple items at one time.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `data'        the address of the items to append
    `num_len'     the number of items to append */
-#define EA_APPEND_MULT(typename, array, data, num_data)					\
+#define EA_APPEND_MULT(array, data, num_data)							\
+EA_STMT_START {															\
 	if (data != NULL)													\
 	{																	\
 		unsigned pos = (array).len;										\
 		(array).len += num_data;										\
-		EA_NORMALIZE(typename, array);									\
+		EA_NORMALIZE(array);											\
 		memcpy(&EA_SR(array, pos), data, (array).tysize * num_data);	\
-	}
+	}																	\
+} EA_STMT_END
 
 /* Insert multiple items at one time.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `pos'         the zero-based index indicating where to insert the
                  given element
    `data'        the address of the items to insert
    `num_data'    the number of items to insert */
-#define EA_INSERT_MULT(typename, array, pos, data, num_data)			\
+#define EA_INSERT_MULT(array, pos, data, num_data)						\
+EA_STMT_START {															\
 	if (data != NULL)													\
 	{																	\
+		unsigned sos = pos; /* avoid macro evaluation problems */		\
 		(array).len += num_data;										\
-		EA_NORMALIZE(typename, array);									\
-		memmove(&EA_SR(array, pos+num_data), &EA_SR(array, pos),		\
-				(array).tysize * ((array).len - pos));					\
-		memcpy(&EA_SR(array, pos), data, (array).tysize * num_data);	\
-	}
+		EA_NORMALIZE(array);											\
+		memmove(&EA_SR(array, sos+num_data), &EA_SR(array, sos),		\
+				(array).tysize * ((array).len - sos));					\
+		memcpy(&EA_SR(array, sos), data, (array).tysize * num_data);	\
+	}																	\
+} EA_STMT_END
 
 /* Prepend the given element at the beginning of the array.  Note that
    the prepended item cannot be larger than an integer type.  To
@@ -342,105 +387,145 @@
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `element'     the value of the element to append */
-#define EA_PREPEND(typename, array, element) \
-	EA_INSERT(typename, array, 0, element);
+#define EA_PREPEND(array, element) \
+	EA_INSERT(array, 0, element)
 
 /* Prepend multiple elements at one time.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `data'        the address of the elements to prepend
    `num_data'    the number of items to prepend */
-#define EA_PREPEND_MULT(typename, array, data, num_data)	\
-	EA_INSERT_MULT(typename, array, 0, data, num_data);
+#define EA_PREPEND_MULT(array, data, num_data)	\
+	EA_INSERT_MULT(array, 0, data, num_data)
 
-/* Delete the indexed element by moving following elements over.  The
-   allocated array memory is not shrunken.
+/* Delete the indexed element by moving following elements over the
+   indexed element.  The allocated array memory is not shrunken.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `pos'         the zero-based index indicating which element to
                  remove */
-#define EA_REMOVE(typename, array, pos)									\
-{																		\
+#define EA_REMOVE(array, pos)											\
+EA_STMT_START {															\
 	memmove(&EA_SR(array, pos), &EA_SR(array, pos+1), (array).tysize *	\
 			((array).len - (pos + 1)));									\
 	(array).len--;														\
-}
+} EA_STMT_END
 
 /* Delete the indexed element by moving the last element into the
    indexed position.  The allocated array memory is not shrunken.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `pos'         the zero-based index indicating which element to
                  remove */
-#define EA_REMOVE_FAST(typename, array, pos)							\
-{																		\
-	memmove(&EA_SR(array, pos), &EA_SR(array, (array).len-1),			\
-			(array).tysize);											\
+#define EA_REMOVE_FAST(array, pos)										\
+EA_STMT_START {															\
+	memcpy(&EA_SR(array, pos), &EA_SR(array, (array).len-1),			\
+		   (array).tysize);												\
 	(array).len--;														\
-}
+} EA_STMT_END
 
-/* Remove a range of elements at index `pos' of length `len'.
+/* Remove multiple consecutive of elements by moving the following
+   elements over the deleted elements.  The allocated array memory is
+   not shrunken.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `data'        the address of the data array to append
    `pos'         the zero-based index indicating the first element to
                  remove
    `num_data'    the number of items to remove */
-#define EA_REMOVE_RANGE(typename, array, pos, num_data)					\
-{																		\
+#define EA_REMOVE_MULT(array, pos, num_data)							\
+EA_STMT_START {															\
 	memmove(&EA_SR(array, pos), &EA_SR(array, pos+num_data),			\
 			(array).tysize * ((array).len - (pos + num_data)));			\
-}
+	(array).len -= num_data;											\
+} EA_STMT_END
 
 /* Set an array's size and allocate enough memory for that size.
 
    Parameters:
 
-   `typename'    the base type that the array contains, such as `int'
    `array'       the value (not pointer) of the exparray to modify
    `size'        the new size of the array, measured in elements */
-#define EA_SET_SIZE(typename, array, size)			\
-{													\
+#define EA_SET_SIZE(array, size)					\
+EA_STMT_START {										\
 	(array).len = size;								\
-	EA_NORMALIZE(typename, array);					\
-}
+	EA_NORMALIZE(array);							\
+} EA_STMT_END
 
 /* Push an element onto the end of the given array, as if it were a
    stack.  This function is just an alias for `EA_APPEND()'.  */
-#define EA_PUSH_BACK(typename, array, element) \
-	EA_APPEND(typename, array, element);
+#define EA_PUSH_BACK(array, element) \
+	EA_APPEND(array, element)
 
 /* Pop an element off of the end of the given array, as if it were a
    stack.  The allocated array memory is not shrunken.  */
-#define EA_POP_BACK(typename, array) \
-	(array).len--;
+#define EA_POP_BACK(array) \
+	(array).len--
 
 /* This function is just an alias for `EA_PREPEND()'.  You should not
    use this macro for a stack data structure, as it will have serious
    performance problems when used in that way.  */
-#define EA_PUSH_FRONT(typename, array, element) \
-	EA_PREPEND(typename, array, element);
+#define EA_PUSH_FRONT(array, element) \
+	EA_PREPEND(array, element)
 
 /* Remove an element from the beginning of the given array.  The
    allocated array memory is not shrunken.  You should not use this
    macro for a stack data structure, as it will have serious
    performance problems when used in that way.  */
-#define EA_POP_FRONT(typename, array) \
-	EA_REMOVE(typename, array, 0);
+#define EA_POP_FRONT(array) \
+	EA_REMOVE(array, 0)
+
+/* Remove all elements starting at a zero-based index and going until
+   the end of the array.  This is just a convenience function for
+   `EA_REMOVE_MULT()'.  */
+#define EA_ERASEP(array, pos) \
+	EA_REMOVE_MULT(array, pos, (array).len - pos)
+
+/* Remove a range of elements using a zero-based index to the first
+   element to remove and a zero-based index just beyond the last
+   element to remove.  */
+#define EA_ERASER(array, begin, end) \
+	EA_REMOVE_MULT(array, begin, end - begin)
+
+/* "Rename" exparrays to be arrays based off of the opposite array's
+   data elements.  */
+#define EA_SWAP(typename, left, right)				\
+EA_STMT_START {										\
+	typename##_array temp;							\
+	memcpy(temp, left, sizeof(typename##_array));	\
+	memcpy(left, right, sizeof(typename##_array));	\
+	memcpy(right, temp, sizeof(typename##_array));	\
+} EA_STMT_END
+
+/* Get the element at the beginning of the array.  */
+#define EA_FRONT(array) EA_SR(array, 0)
+
+/* Get the element at the end of the array.  */
+#define EA_BACK(array) \
+	EA_SR(array, ((array).len == 0 ? 0 : (array).len - 1))
+
+/* Get an index to the first element of the array.  */
+#define EA_BEGIN(array) 0
+
+/* Get an index just beyond the last element of the array.  */
+#define EA_END(array) ((array).len)
+
+/* Clear the contents of an array.  The allocated space is not
+   shrunken.  */
+#define EA_CLEAR(array) ((array).len = 0)
+
+/* Test if an array is empty.  This is just an alias for testing
+   whether the length is zero.  */
+#define EA_EMPTY(array) ((array).len == 0)
 
 #endif /* not EXPARRAY_H */

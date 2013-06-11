@@ -1,4 +1,5 @@
 /* This is basically just boolean definitions.  */
+/* This file is in Public Domain.  */
 #ifndef BOOL_H
 #define BOOL_H
 

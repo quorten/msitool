@@ -1,6 +1,28 @@
 /* msi-tool.c -- Builds directory, component, file, and feature
    tables for an MSI file.
 
+Copyright (C) 2013 Andrew Makousky
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
+
+/*
    See `README.txt' for detailed tutorial on how to use `msi-tool' to
    help you build a Windows Installer package, along with general
    information for involking `msi-tool'.
@@ -263,7 +285,7 @@ int main(int argc, char* argv[])
 				}
 			}
 			else
-				EA_APPEND(char_ptr, lsrFiles, argv[i]);
+				EA_APPEND(lsrFiles, argv[i]);
 		}
 	}
 
@@ -316,7 +338,7 @@ int main(int argc, char* argv[])
 	{ retval = 1; goto cleanup; }
 
 	/* Parse all the other ls -R listings.  */
-	EA_SET_SIZE(DirTree, rootDirN, lsrFiles.len - 1);
+	EA_SET_SIZE(rootDirN, lsrFiles.len - 1);
 	for (curRoot = 0; curRoot < lsrFiles.len - 1; curRoot++)
 	{
 		/* Clear the directory stack.  */
@@ -327,8 +349,8 @@ int main(int argc, char* argv[])
 				xfree(dirStack.d[i]);
 			}
 		}
-		EA_SET_SIZE(char_ptr, dirStack, 0);
-		EA_SET_SIZE(unsigned, dirStkAssoc, 0);
+		EA_SET_SIZE(dirStack, 0);
+		EA_SET_SIZE(dirStkAssoc, 0);
 
 		curDir = &rootDirN.d[curRoot];
 
@@ -356,7 +378,7 @@ int main(int argc, char* argv[])
 			longName = strchr(fileTable.d[i+2], (int)'|') + 1;
 			qsortFiles.d[i/fileCols].name = longName;
 			qsortFiles.d[i/fileCols].tableIndex = i / fileCols;
-			EA_ADD(FileIndex, qsortFiles);
+			EA_ADD(qsortFiles);
 		}
 		qsort(qsortFiles.d, qsortFiles.len, sizeof(FileIndex),
 			  FileIndex_qsort);
@@ -599,7 +621,7 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 
 	curPos = 0;
 	EA_INIT(char, dirName, 16);
-	EA_APPEND(char, dirName, '\0');
+	EA_APPEND(dirName, '\0');
 
 	pathPart = 0;
 	backDirs = false;
@@ -619,10 +641,10 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 					 i >= pathPart && i != (unsigned)-1; i--)
 				{
 					xfree(dirStack.d[i]);
-					EA_POP_BACK(char_ptr, dirStack);
-					EA_NORMALIZE(char_ptr, dirStack);
-					EA_POP_BACK(unsigned, dirStkAssoc);
-					EA_NORMALIZE(unsigned, dirStkAssoc);
+					EA_POP_BACK(dirStack);
+					EA_NORMALIZE(dirStack);
+					EA_POP_BACK(dirStkAssoc);
+					EA_NORMALIZE(dirStkAssoc);
 				}
 				backDirs = true;
 			}
@@ -636,8 +658,8 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 				DirTree* existDir;
 				newDirPart = (char*)xmalloc(dirName.len);
 				strcpy(newDirPart, dirName.d);
-				EA_APPEND(char_ptr, dirStack, newDirPart);
-				EA_APPEND(unsigned, dirStkAssoc, dirTable.len);
+				EA_APPEND(dirStack, newDirPart);
+				EA_APPEND(dirStkAssoc, dirTable.len);
 				/* If the directory already exists, add the
 				   existing index.  */
 				if (firstList == false && dirStack.len >= 2)
@@ -681,8 +703,7 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 				break;
 		}
 		else
-			EA_INSERT(char, dirName, dirName.len - 1,
-					  colonLabel->d[curPos]);
+			EA_INSERT(dirName, dirName.len - 1, colonLabel->d[curPos]);
 		curPos++;
 	}
 	xfree(dirName.d);
@@ -722,7 +743,7 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 		{
 			/* Add a directory row.  */
 			colStart = dirTable.len;
-			EA_SET_SIZE(char_ptr, dirTable, dirTable.len + dirCols);
+			EA_SET_SIZE(dirTable, dirTable.len + dirCols);
 			dirID = (char*)xmalloc(strlen(idPrefix) + 1 + 11 + 1);
 			dirTableRow = dirTable.len / dirCols - 1;
 			sprintf(dirID, "%sd%u", idPrefix, dirTable.len / dirCols - 1);
@@ -769,7 +790,7 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 				rootName = (char*)xmalloc(strlen(dirStack.d[0]) + 1);
 				strcpy(rootName, dirStack.d[0]);
 				curDir->name = rootName;
-				EA_APPEND(char_ptr, rootNameN, rootName);
+				EA_APPEND(rootNameN, rootName);
 			}
 			curDir->tableRow = 0;
 			curDir->dirKey = dirTable.d[colStart];
@@ -818,7 +839,7 @@ int LSRAddBody(unsigned curLevel, char_array* colonLabel)
 											 children.len].children), 16);
 			EA_INIT(unsigned, (curDir->children.d[curDir->
 											  children.len].fileIdcs), 16);
-			EA_ADD(DirTree, curDir->children);
+			EA_ADD(curDir->children);
 			curDir = &curDir->children.d[curDir->children.len-1];
 		}
 	}
@@ -841,7 +862,7 @@ int LSRAddItem(char_array* itemName)
 		unsigned colStart;
 		char* compID;
 		colStart = compTable.len;
-		EA_SET_SIZE(char_ptr, compTable, compTable.len + compCols);
+		EA_SET_SIZE(compTable, compTable.len + compCols);
 		compID = (char*)xmalloc(strlen(idPrefix) + 1 + 11 + 1);
 		sprintf(compID, "%sc%u", idPrefix, compTable.len / compCols - 1);
 		compTable.d[colStart] = compID;
@@ -863,7 +884,7 @@ int LSRAddItem(char_array* itemName)
 		char* fileSize;
 		char* seqNum;
 		colStart = fileTable.len;
-		EA_SET_SIZE(char_ptr, fileTable, fileTable.len + fileCols);
+		EA_SET_SIZE(fileTable, fileTable.len + fileCols);
 		fileID = (char*)xmalloc(strlen(idPrefix) + 1 + 11 + 1);
 		sprintf(fileID, "%sf%u", idPrefix, fileTable.len / fileCols - 1);
 		newFile = (char*)xmalloc(strlen(fileID) + 1 + itemName->len);
@@ -926,7 +947,7 @@ int LSRAddItem(char_array* itemName)
 		sprintf(seqNum, "%u", fileTable.len / fileCols);
 		fileTable.d[colStart+7] = seqNum;
 		/* Add an index to the fileTable row in curDir.  */
-		EA_APPEND(unsigned, curDir->fileIdcs, colStart);
+		EA_APPEND(curDir->fileIdcs, colStart);
 		/* Update component information.  */
 		curDir->compRefCount++;
 		if (addedComponent == false)
@@ -950,13 +971,13 @@ int FeatAddBody(unsigned curLevel, char_array* colonLabel)
 	/* Add a feature stack entry.  */
 	featStack.d[featStack.len] = (char*)xmalloc(colonLabel->len);
 	strcpy(featStack.d[featStack.len], colonLabel->d);
-	EA_ADD(char_ptr, featStack);
+	EA_ADD(featStack);
 	featStkAssoc.d[featStkAssoc.len] = featureTable.len / featureCols;
-	EA_ADD(unsigned, featStkAssoc);
+	EA_ADD(featStkAssoc);
 
 	/* Add a Feature entry.  */
 	colStart = featureTable.len;
-	EA_SET_SIZE(char_ptr, featureTable, featureTable.len + featureCols);
+	EA_SET_SIZE(featureTable, featureTable.len + featureCols);
 	featureID = (char*)xmalloc(strlen(idPrefix) + 2 + 11 + 1);
 	sprintf(featureID, "%sft%u", idPrefix, featureTable.len / featureCols - 1);
 	dispOrder = (char*)xmalloc(11 + 1);
@@ -994,8 +1015,8 @@ int FeatRemoveLevels(unsigned testLevel)
 	for (i = featStack.len; i > testLevel; i--)
 	{
 		xfree(featStack.d[i-1]);
-		EA_POP_BACK(char_ptr, featStack);
-		EA_POP_BACK(unsigned, featStkAssoc);
+		EA_POP_BACK(featStack);
+		EA_POP_BACK(featStkAssoc);
 	}
 	return 0;
 }
@@ -1007,7 +1028,7 @@ int FeatAddItem(char_array* itemName)
 	bool foundDir;
 	bool skippedRoot;
 	EA_INIT(char, pathPart, 16);
-	EA_APPEND(char, pathPart, '\0');
+	EA_APPEND(pathPart, '\0');
 	/* Parse the path until the end file.  */
 	curDir = &rootDir;
 	skippedRoot = false;
@@ -1045,7 +1066,7 @@ int FeatAddItem(char_array* itemName)
 				if (itemName->d[i] != '\0')
 				{
 					pathPart.d[0] = '\0';
-					EA_SET_SIZE(char, pathPart, 1);
+					EA_SET_SIZE(pathPart, 1);
 				}
 				continue;
 			}
@@ -1055,7 +1076,7 @@ int FeatAddItem(char_array* itemName)
 				{
 					curDir = &curDir->children.d[j];
 					pathPart.d[0] = '\0';
-					EA_SET_SIZE(char, pathPart, 1);
+					EA_SET_SIZE(pathPart, 1);
 					foundDir = true;
 					break;
 				}
@@ -1067,7 +1088,7 @@ int FeatAddItem(char_array* itemName)
 			}
 		}
 		else
-			EA_INSERT(char, pathPart, pathPart.len - 1, itemName->d[i]);
+			EA_INSERT(pathPart, pathPart.len - 1, itemName->d[i]);
 	}
 	if (curDir == &rootDir && strcmp(itemName->d, pathPart.d) == 0 &&
 		strcmp(rootDir.name, itemName->d) != 0)
@@ -1110,7 +1131,7 @@ int FeatAddItem(char_array* itemName)
 			/* Create a new component.  */
 			unsigned compColStart;
 			compColStart = compTable.len;
-			EA_SET_SIZE(char_ptr, compTable, compTable.len + compCols);
+			EA_SET_SIZE(compTable, compTable.len + compCols);
 			compID = (char*)xmalloc(strlen(idPrefix) + 1 + 11 + 1);
 			sprintf(compID, "%sc%u", idPrefix, compTable.len / compCols - 1);
 			compTable.d[compColStart] = compID;
@@ -1133,8 +1154,7 @@ int FeatAddItem(char_array* itemName)
 			unsigned featColStart;
 			colStart = featCompTable.len;
 			featColStart = featureTable.len - featureCols;
-			EA_SET_SIZE(char_ptr, featCompTable,
-						featCompTable.len + featCompCols);
+			EA_SET_SIZE(featCompTable, featCompTable.len + featCompCols);
 			featCompTable.d[colStart] = featureTable.d[featColStart];
 			featCompTable.d[colStart+1] = compID;
 			if (curDir->component != compID)
@@ -1264,8 +1284,7 @@ void AddFeatComps(char_ptr_array* featCompTable, char* featureID,
 	if (curDir->component != NULL)
 	{
 		colStart = featCompTable->len;
-		EA_SET_SIZE(char_ptr, *featCompTable,
-					featCompTable->len + featCompCols);
+		EA_SET_SIZE(*featCompTable, featCompTable->len + featCompCols);
 		featCompTable->d[colStart] = featureID;
 		featCompTable->d[colStart+1] = curDir->component;
 	}
