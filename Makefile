@@ -29,6 +29,6 @@ uninstall:
 
 dist:
 	mkdir msitool-$(VERSION)
-	cp $(DISTFILES) msitool-$(VERSION)
+	cp -p $(DISTFILES) msitool-$(VERSION)
 	zip -9rq msitool-$(VERSION).zip msitool-$(VERSION)
 	rm -rf msitool-$(VERSION)
