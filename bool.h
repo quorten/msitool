@@ -1,5 +1,11 @@
 /* This is basically just boolean definitions.  */
-/* This file is in Public Domain.  */
+/*
+
+Public Domain 2013, 2020 Andrew Makousky
+
+See the file "UNLICENSE" in the top level directory for details.
+
+*/
 #ifndef BOOL_H
 #define BOOL_H
 

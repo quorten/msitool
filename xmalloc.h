@@ -2,7 +2,11 @@
    Also defines a convenient memory free macro.  You might decide to
    use "gnulib" in place of this implementation.
 
-   This file is in Public Domain.  */
+Public Domain 2013, 2020 Andrew Makousky
+
+See the file "UNLICENSE" in the top level directory for details.
+
+*/
 
 #ifndef XMALLOC_H
 #define XMALLOC_H

@@ -1,5 +1,5 @@
 msi-tool README
-***************
+===============
 
 `msi-tool' is a tool that helps facilitate the process of creating a
 Windows Installer (MSI) package for installing a user application.

@@ -7,7 +7,11 @@
    was inspired from the DJGPP <www.delorie.com/djgpp> xalloc
    functions, courtesy of DJ Delorie.
 
-   This file is in Public Domain.  */
+Public Domain 2013, 2020 Andrew Makousky
+
+See the file "UNLICENSE" in the top level directory for details.
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
