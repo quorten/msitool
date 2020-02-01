@@ -11,7 +11,7 @@ msi_tool_SOURCES = \
 	bool.h exparray.h xmalloc.c xmalloc.h
 
 DISTFILES = $(msi_tool_SOURCES) \
-	README COPYING howto.txt Makefile exparray.gdb
+	README.md COPYING howto.md Makefile exparray.gdb
 
 all: msi-tool$(X)
 
